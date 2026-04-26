@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int           @id @default(autoincrement())
+  name            String
+  email           String        @unique
+  password        String
+  role            String
+  tutorProfile    TutorProfile?
+  studentBookings Booking[]     @relation("StudentBookings")
+  tutorBookings   Booking[]     @relation("TutorBookings")
+  messages        Message[]
+
+  reviewsGiven    Review[] @relation("StudentReviews")
+  reviewsReceived Review[] @relation("TutorReviews")
+}
+
+model TutorProfile {
+  id                     Int     @id @default(autoincrement())
+  userId                 Int     @unique
+  bio                    String?
+  rate                   Float
+  experience             String
+  averageRating          Float   @default(0)
+  totalSessionsCompleted Int     @default(0)
+
+  user         User               @relation(fields: [userId], references: [id])
+  subjects     TutorSubject[]
+  availability AvailabilitySlot[]
+  bookings     Booking[]
+}
+
+model Subject {
+  id               Int            @id @default(autoincrement())
+  name             String         @unique
+  tutors           TutorSubject[]
+  bookings         Booking[]
+  learningPathFrom LearningPath[] @relation("FromSubject")
+  learningPathTo   LearningPath[] @relation("ToSubject")
+}
+
+model TutorSubject {
+  id Int @id @default(autoincrement())
+
+  tutorId   Int
+  subjectId Int
+
+  tutor   TutorProfile @relation(fields: [tutorId], references: [id])
+  subject Subject      @relation(fields: [subjectId], references: [id])
+
+  @@unique([tutorId, subjectId])
+}
+
+model AvailabilitySlot {
+  id        Int    @id @default(autoincrement())
+  tutorId   Int
+  dayOfWeek String
+  startTime String
+  endTime   String
+
+  tutor TutorProfile @relation(fields: [tutorId], references: [id])
+
+  @@unique([tutorId, dayOfWeek, startTime, endTime])
+}
+
+model Booking {
+  id Int @id @default(autoincrement())
+
+  studentId Int
+  tutorId   Int
+  subjectId Int
+
+  bookingDate String
+  startTime   String
+  endTime     String
+
+  status         String  @default("Requested")
+  requestMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student        User          @relation("StudentBookings", fields: [studentId], references: [id])
+  tutor          User          @relation("TutorBookings", fields: [tutorId], references: [id])
+  subject        Subject       @relation(fields: [subjectId], references: [id])
+  tutorProfile   TutorProfile? @relation(fields: [tutorProfileId], references: [id])
+  tutorProfileId Int?
+  messages       Message[]
+  review         Review?
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  bookingId Int
+  senderId  Int
+  content   String
+  sentAt    DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  sender  User    @relation(fields: [senderId], references: [id])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  bookingId Int      @unique
+  studentId Int
+  tutorId   Int
+  rating    Int
+  feedback  String?
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  student User    @relation("StudentReviews", fields: [studentId], references: [id])
+  tutor   User    @relation("TutorReviews", fields: [tutorId], references: [id])
+}
+
+model LearningPath {
+  id            Int @id @default(autoincrement())
+  fromSubjectId Int
+  toSubjectId   Int
+
+  fromSubject Subject @relation("FromSubject", fields: [fromSubjectId], references: [id])
+  toSubject   Subject @relation("ToSubject", fields: [toSubjectId], references: [id])
+
+  @@unique([fromSubjectId, toSubjectId])
+}
